@@ -1,18 +1,16 @@
-"""
-
-Available commands:
-
-new
-save
-load
-delete
-help
-
-"""
-
 import sys
+from zipfile import ZipFile
+import configparser
+from os.path import dirname, isfile
+from os import altsep
 
-module_name = 'mod-profile'
+project_root = dirname(__file__)
+
+module_name = f'mod-profile'
+module_version = 'v1.0'
+config_path = f'{project_root}{altsep}profile.cfg'
+
+print(config_path)
 
 supported_commands = {
     'create': ('create', 2),
@@ -26,8 +24,8 @@ supported_commands = {
 
 
 def show_help():
-    output = """
-    === Halo Mod Profile Switcher v1.0 ===
+    output = f"""
+    === Halo Mod Profile Switcher {module_version} ===
     
     Available Commands:
     
@@ -50,6 +48,44 @@ def invalid_usage(command):
     print(output)
 
 
+def create():
+    pass
+
+
+def save(profile):
+    pass
+
+
+def load(profile):
+    pass
+
+
+def delete(profile):
+    pass
+
+
+def status():
+    pass
+
+
+def init_app():
+    welcome_message = f"=== Halo Mod Profile Switcher {module_version} ===\n\n" + \
+                      "Welcome to the Halo Profile Switcher. To begin, please enter the path to your modding folder below:\n"
+    working_directory = input(welcome_message)
+
+    config = configparser.ConfigParser()
+    config['Working Directories'] = {
+        'default': working_directory
+    }
+
+    with open(config_path, 'w') as configfile:
+        config.write(configfile)
+
+
+if not isfile(config_path):
+    init_app()
+    exit()
+
 num_commands = len(sys.argv)
 
 command = None
@@ -61,10 +97,12 @@ if num_commands > 2:
     command_args = sys.argv[2:]
 
 if len(sys.argv) < 2 or command not in supported_commands:
-    print(command)
     invalid_command()
+    exit()
 
 elif command in supported_commands and len(sys.argv) != supported_commands[command][1]:
     invalid_usage(command)
+    exit()
 
-
+if command == 'create':
+    pass
