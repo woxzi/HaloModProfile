@@ -1,10 +1,11 @@
 import sys
 from zipfile import ZipFile
 import configparser
-from os.path import dirname, isfile, abspath
+from os.path import dirname, isfile, isdir, abspath
 from os import altsep, getcwd, sep
 import pathlib
 import json
+from shutil import rmtree
 
 project_root = pathlib.Path(__file__).parent.resolve()
 
@@ -12,8 +13,6 @@ module_name = f'mod-profile'
 status_file_name = f'.modprofiles'
 module_version = 'v1.0'
 config_path = f'{project_root}{sep}profile.cfg'
-
-print(config_path)
 
 supported_commands = {
     'create': ('create', 2),
@@ -67,7 +66,7 @@ def show_help():
     Available Commands:
     
     """
-    for command, usage in supported_commands:
+    for command, (usage, expected_args) in supported_commands.items():
         output += f'\t{command}:\t{module_name} {usage}\n'
 
     print(output)
@@ -86,7 +85,31 @@ def invalid_usage(command):
 
 
 def create():
-    # TODO create logic here
+    base_path = get_working_directory()
+    data_path = base_path + sep + 'data'
+    data_archive_path = base_path + sep + 'data.zip'
+    tags_path = base_path + sep + 'tags'
+    tags_archive_path = base_path + sep + 'tags.zip'
+
+    # process data folder
+    if isdir(data_path):
+        print(f'Deleting data folder: {data_path}')
+        rmtree(data_path)
+
+    print('Extracting data archive...')
+    with ZipFile(data_archive_path, 'r') as zipObj:
+        zipObj.extractall(base_path)
+        print('Done.')
+
+    # process tags folder
+    if isdir(tags_path):
+        print(f'Deleting tags folder: {tags_path}')
+        rmtree(tags_path)
+
+    print('Extracting tags archive...')
+    with ZipFile(tags_archive_path, 'r') as zipObj:
+        zipObj.extractall(base_path)
+        print('Done.')
 
     config = get_status_file()
     config['Profiles']['active'] = '*'
@@ -140,7 +163,6 @@ def delete(profile):
 
 
 def status():
-
     config = get_status_file()
     profiles = json.loads(config['Profiles']['saved_profiles'])
     profile_list = ', '.join(profiles) if len(profiles) > 0 else 'None'
@@ -163,10 +185,6 @@ def init_app():
         config.write(configfile)
 
 
-def validate_profile():
-    directory = get_working_directory()
-
-
 if not isfile(config_path):
     init_app()
     exit()
@@ -183,16 +201,19 @@ if num_commands > 2:
 
 if len(sys.argv) < 2 or command not in supported_commands:
     invalid_command()
-    exit()
-
 elif command in supported_commands and len(sys.argv) != supported_commands[command][1]:
     invalid_usage(command)
-    exit()
-
-if command.lower() == 'create':
+elif command.lower() == 'create':
     create()
-    exit()
-
-if command.lower() == 'status':
+elif command.lower() == 'load':
+    load(command_args[0])
+elif command.lower() == 'save':
+    save(command_args[0])
+elif command.lower() == 'delete':
+    delete(command_args[0])
+elif command.lower() == 'status':
     status()
-    exit()
+elif command.lower() == '?' or command.lower() == 'help':
+    show_help()
+else:
+    invalid_command()
