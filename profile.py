@@ -132,6 +132,7 @@ def save(profile=None):
 
     active_profile = profile if profile is not None else config['Profiles']['active']
 
+    # build and save path strings for readability
     base_path = get_working_directory()
     profile_path = base_path + sep + profile_folder_name + sep + active_profile
     data_path = sep + 'data'
@@ -141,6 +142,7 @@ def save(profile=None):
         rmtree(profile_path)
     makedirs(profile_path)
 
+    # copy over current mod profile
     def save_folder(extension):
         copytree(base_path + extension, profile_path + extension)
 
@@ -170,15 +172,17 @@ def load(profile):
         print(f'Error: Cannot load from profile \'{profile}\'')
         return
 
+    # build and save path strings for readability
     base_path = get_working_directory()
     profile_path = base_path + sep + profile_folder_name + sep + profile
     data_path = sep + 'data'
     tags_path = sep + 'tags'
-    
+
+    # copy over stored mod profile
     def load_folder(extension):
         rmtree(base_path + extension)
         copytree(profile_path + extension, base_path + extension)
-    
+
     print('Loading data folder...')
     load_folder(data_path)
     print('Done.')
@@ -186,7 +190,7 @@ def load(profile):
     print('Loading tags folder...')
     load_folder(tags_path)
     print('Done.')
-    
+
     config = get_status_file()
     config['Profiles']['active'] = profile
     save_status_file_config(config)
@@ -201,10 +205,19 @@ def delete(profile):
         print(f'Error: Cannot delete profile \'{profile}\'')
         return
 
-    # TODO delete logic here
+    # delete profile from disk
+    profile_path = get_working_directory() + sep + profile_folder_name + sep + profile
+    rmtree(profile_path)
 
-    config = get_status_file()
-    config['Profiles']['active'] = empty_profile
+    # remove from internal store
+    profiles.remove(profile)
+    config['Profiles']['saved_profiles'] = json.dumps(profiles)
+
+    # remove profile if active
+    if config['Profiles']['active'] == profile:
+        config['Profiles']['active'] = empty_profile
+
+    save_status_file_config(config)
 
 
 def status():
