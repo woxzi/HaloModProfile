@@ -1,11 +1,11 @@
-import sys
-from zipfile import ZipFile
 import configparser
-from os.path import dirname, isfile, isdir, abspath
-from os import altsep, getcwd, sep, makedirs
-import pathlib
 import json
+import pathlib
+import sys
+from os import sep, makedirs
+from os.path import isfile, isdir
 from shutil import rmtree, copytree
+from zipfile import ZipFile
 
 project_root = pathlib.Path(__file__).parent.resolve()
 
