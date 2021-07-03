@@ -144,8 +144,13 @@ def save(profile=None):
     def save_folder(extension):
         copytree(base_path + extension, profile_path + extension)
 
+    print('Saving data folder...')
     save_folder(data_path)
+    print('Done.')
+
+    print('Saving tags folder...')
     save_folder(tags_path)
+    print('Done.')
 
     # add profile to saved profile list and switch to it
     profiles = json.loads(config['Profiles']['saved_profiles'])
@@ -165,10 +170,26 @@ def load(profile):
         print(f'Error: Cannot load from profile \'{profile}\'')
         return
 
-    # TODO load logic here
+    base_path = get_working_directory()
+    profile_path = base_path + sep + profile_folder_name + sep + profile
+    data_path = sep + 'data'
+    tags_path = sep + 'tags'
+    
+    def load_folder(extension):
+        rmtree(base_path + extension)
+        copytree(profile_path + extension, base_path + extension)
+    
+    print('Loading data folder...')
+    load_folder(data_path)
+    print('Done.')
 
+    print('Loading tags folder...')
+    load_folder(tags_path)
+    print('Done.')
+    
     config = get_status_file()
     config['Profiles']['active'] = profile
+    save_status_file_config(config)
 
 
 def delete(profile):
