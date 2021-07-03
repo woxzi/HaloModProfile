@@ -1,14 +1,17 @@
 import sys
 from zipfile import ZipFile
 import configparser
-from os.path import dirname, isfile
-from os import altsep
+from os.path import dirname, isfile, abspath
+from os import altsep, getcwd, sep
+import pathlib
+import json
 
-project_root = dirname(__file__)
+project_root = pathlib.Path(__file__).parent.resolve()
 
 module_name = f'mod-profile'
+status_file_name = f'.modprofiles'
 module_version = 'v1.0'
-config_path = f'{project_root}{altsep}profile.cfg'
+config_path = f'{project_root}{sep}profile.cfg'
 
 print(config_path)
 
@@ -21,6 +24,40 @@ supported_commands = {
     'help': ('help', 2),
     '?': ('?', 2)
 }
+
+
+def get_working_directory():
+    config = configparser.ConfigParser()
+    config.read(config_path)
+    return config['Working_Directories']['default']
+
+
+def get_status_file_path():
+    return get_working_directory() + sep + status_file_name
+
+
+def save_status_file_config(config):
+    with open(get_status_file_path(), 'w') as configfile:
+        config.write(configfile)
+
+
+def create_status_file():
+    config = configparser.ConfigParser()
+    config['Profiles'] = {
+        'active': '*',
+        'saved_profiles': '[]'
+    }
+    save_status_file_config(config)
+
+
+def get_status_file():
+    path = get_status_file_path()
+    if not isfile(path):
+        create_status_file()
+
+    config = configparser.ConfigParser()
+    config.read(path)
+    return config
 
 
 def show_help():
@@ -49,23 +86,67 @@ def invalid_usage(command):
 
 
 def create():
-    pass
+    # TODO create logic here
+
+    config = get_status_file()
+    config['Profiles']['active'] = '*'
 
 
 def save(profile):
-    pass
+    if profile == '*':
+        invalid_usage('save')
+        print('Error: Cannot save to profile \'*\'')
+        return
+
+    config = get_status_file()
+
+    # TODO save logic here
+
+    profiles = json.loads(config['Profiles']['saved_profiles'])
+    if not profile in profiles:
+        profiles.append(profile)
+        config['Profiles']['saved_profiles'] = json.dumps(profiles)
+        save_status_file_config(config)
 
 
 def load(profile):
-    pass
+    config = get_status_file()
+    profiles = json.loads(config['Profiles']['saved_profiles'])
+
+    if profile not in profiles:
+        invalid_usage('load')
+        print(f'Error: Cannot load from profile \'{profile}\'')
+        return
+
+    # TODO load logic here
+
+    config = get_status_file()
+    config['Profiles']['active'] = profile
 
 
 def delete(profile):
-    pass
+    config = get_status_file()
+    profiles = json.loads(config['Profiles']['saved_profiles'])
+
+    if profile not in profiles:
+        invalid_usage('delete')
+        print(f'Error: Cannot delete profile \'{profile}\'')
+        return
+
+    # TODO delete logic here
+
+    config = get_status_file()
+    config['Profiles']['active'] = '*'
 
 
 def status():
-    pass
+
+    config = get_status_file()
+    profiles = json.loads(config['Profiles']['saved_profiles'])
+    profile_list = ', '.join(profiles) if len(profiles) > 0 else 'None'
+    active_profile = config['Profiles']['active'] if config['Profiles']['active'] != '*' else 'None'
+
+    print(f"\tCurrent Profile: {active_profile}\n\tSaved Profiles: {profile_list}")
 
 
 def init_app():
@@ -74,12 +155,16 @@ def init_app():
     working_directory = input(welcome_message)
 
     config = configparser.ConfigParser()
-    config['Working Directories'] = {
+    config['Working_Directories'] = {
         'default': working_directory
     }
 
     with open(config_path, 'w') as configfile:
         config.write(configfile)
+
+
+def validate_profile():
+    directory = get_working_directory()
 
 
 if not isfile(config_path):
@@ -104,5 +189,10 @@ elif command in supported_commands and len(sys.argv) != supported_commands[comma
     invalid_usage(command)
     exit()
 
-if command == 'create':
-    pass
+if command.lower() == 'create':
+    create()
+    exit()
+
+if command.lower() == 'status':
+    status()
+    exit()
