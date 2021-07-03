@@ -2,26 +2,29 @@ import sys
 from zipfile import ZipFile
 import configparser
 from os.path import dirname, isfile, isdir, abspath
-from os import altsep, getcwd, sep
+from os import altsep, getcwd, sep, makedirs
 import pathlib
 import json
-from shutil import rmtree
+from shutil import rmtree, copytree
 
 project_root = pathlib.Path(__file__).parent.resolve()
 
-module_name = f'mod-profile'
-status_file_name = f'.modprofiles'
+module_name = 'mod-profile'
+status_file_name = '.modprofiles'
+profile_folder_name = 'modprofiles'
 module_version = 'v1.0'
 config_path = f'{project_root}{sep}profile.cfg'
+empty_profile = '*'
 
 supported_commands = {
-    'create': ('create', 2),
-    'save': ('save <name>', 3),
-    'load': ('load <name>', 3),
-    'delete': ('delete <name>', 3),
-    'status': ('status', 2),
-    'help': ('help', 2),
-    '?': ('?', 2)
+    'create': ('create', 2, 2),
+    'reset': ('reset', 2, 2),
+    'save': ('save <name>', 2, 3),
+    'load': ('load <name>', 3, 3),
+    'delete': ('delete <name>', 3, 3),
+    'status': ('status', 2, 2),
+    'help': ('help', 2, 2),
+    '?': ('?', 2, 2)
 }
 
 
@@ -43,7 +46,7 @@ def save_status_file_config(config):
 def create_status_file():
     config = configparser.ConfigParser()
     config['Profiles'] = {
-        'active': '*',
+        'active': empty_profile,
         'saved_profiles': '[]'
     }
     save_status_file_config(config)
@@ -66,7 +69,7 @@ def show_help():
     Available Commands:
     
     """
-    for command, (usage, expected_args) in supported_commands.items():
+    for command, (usage, min_expected_args, max_expected_args) in supported_commands.items():
         output += f'\t{command}:\t{module_name} {usage}\n'
 
     print(output)
@@ -74,7 +77,7 @@ def show_help():
 
 def invalid_command():
     output = 'Unrecognized command. Available commands:\n'
-    for usage, expected_args in supported_commands.values():
+    for usage, min_expected_args, max_expected_args in supported_commands.values():
         output += f'\t{module_name} {usage}\n'
     print(output)
 
@@ -111,25 +114,46 @@ def create():
         zipObj.extractall(base_path)
         print('Done.')
 
+    # set current profile to none
     config = get_status_file()
-    config['Profiles']['active'] = '*'
+    config['Profiles']['active'] = empty_profile
 
 
-def save(profile):
-    if profile == '*':
+def save(profile=None):
+    config = get_status_file()
+    if profile == empty_profile:
         invalid_usage('save')
-        print('Error: Cannot save to profile \'*\'')
+        print(f'Error: Cannot save to profile \'{empty_profile}\'')
+        return
+    elif profile is None and config['Profiles']['active'] == empty_profile:
+        invalid_usage('save')
+        print('Error: Cannot save to empty profile')
         return
 
-    config = get_status_file()
+    active_profile = profile if profile is not None else config['Profiles']['active']
 
-    # TODO save logic here
+    base_path = get_working_directory()
+    profile_path = base_path + sep + profile_folder_name + sep + active_profile
+    data_path = sep + 'data'
+    tags_path = sep + 'tags'
 
+    if isdir(profile_path):
+        rmtree(profile_path)
+    makedirs(profile_path)
+
+    def save_folder(extension):
+        copytree(base_path + extension, profile_path + extension)
+
+    save_folder(data_path)
+    save_folder(tags_path)
+
+    # add profile to saved profile list and switch to it
     profiles = json.loads(config['Profiles']['saved_profiles'])
-    if not profile in profiles:
-        profiles.append(profile)
+    if not active_profile in profiles:
+        profiles.append(active_profile)
         config['Profiles']['saved_profiles'] = json.dumps(profiles)
-        save_status_file_config(config)
+    config['Profiles']['active'] = active_profile
+    save_status_file_config(config)
 
 
 def load(profile):
@@ -159,14 +183,14 @@ def delete(profile):
     # TODO delete logic here
 
     config = get_status_file()
-    config['Profiles']['active'] = '*'
+    config['Profiles']['active'] = empty_profile
 
 
 def status():
     config = get_status_file()
     profiles = json.loads(config['Profiles']['saved_profiles'])
     profile_list = ', '.join(profiles) if len(profiles) > 0 else 'None'
-    active_profile = config['Profiles']['active'] if config['Profiles']['active'] != '*' else 'None'
+    active_profile = config['Profiles']['active'] if config['Profiles']['active'] != empty_profile else 'None'
 
     print(f"\tCurrent Profile: {active_profile}\n\tSaved Profiles: {profile_list}")
 
@@ -196,19 +220,23 @@ command_args = None
 
 if num_commands > 1:
     command = sys.argv[1]
-if num_commands > 2:
     command_args = sys.argv[2:]
 
-if len(sys.argv) < 2 or command not in supported_commands:
+if num_commands == 1:
+    show_help()
+elif len(sys.argv) < 2 or command not in supported_commands:
     invalid_command()
-elif command in supported_commands and len(sys.argv) != supported_commands[command][1]:
+elif command in supported_commands and not (supported_commands[command][1] <= len(sys.argv) <= supported_commands[command][2]):
     invalid_usage(command)
-elif command.lower() == 'create':
+elif command.lower() == 'create' or command.lower() == 'reset':
     create()
 elif command.lower() == 'load':
     load(command_args[0])
 elif command.lower() == 'save':
-    save(command_args[0])
+    if len(command_args) > 0:
+        save(command_args[0])
+    else:
+        save()
 elif command.lower() == 'delete':
     delete(command_args[0])
 elif command.lower() == 'status':
